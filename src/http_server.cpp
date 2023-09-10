@@ -8,7 +8,11 @@ HttpServer::HttpServer(const std::string ipAddr, const unsigned short int portId
 {}
 
 HttpServer::~HttpServer()
-{}
+{
+    if (m_server != -1) {
+        close(m_server);
+    }
+}
 
 bool HttpServer::Init()
 {
