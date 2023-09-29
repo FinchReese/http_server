@@ -5,26 +5,21 @@
 
 class HttpServer {
 public:
-    HttpServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog,
+    static HttpServer *GetInstance();
+    void Init(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog,
         const int epollSize);
-    ~HttpServer();
-    void Init();
 private:
-    bool InitServer();
-    bool InitEpollFd();
+    HttpServer();
+    ~HttpServer();
+    bool InitServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog);
+    bool InitEpollFd(const int epollSize);
     bool RegisterServerReadEvent();
-    void EventLoop();
+    void EventLoop(const int epollSize);
     void HandleServerReadEvent();
     void HandleClientReadEvent(const int client);
 private:
-    // 服务器socket相关参数
-    std::string m_ipAddr;
-    unsigned short int m_port;
     int m_server;
-    unsigned int m_backlog;
-    // epoll相关参数
     int m_efd;
-    int m_epollSize;
 };
 
 #endif

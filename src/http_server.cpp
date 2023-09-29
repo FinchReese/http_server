@@ -7,8 +7,7 @@
 
 const unsigned int MAX_READ_BUFF_LEN = 1024; // 每次从客户端最多读取1024字节数据到缓冲区
 
-HttpServer::HttpServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog, const int epollSize)
-    : m_ipAddr(ipAddr), m_port(portId), m_server(-1), m_backlog(backlog), m_efd(-1), m_epollSize(epollSize)
+HttpServer::HttpServer() : m_server(-1), m_efd(-1)
 {}
 
 HttpServer::~HttpServer()
@@ -21,13 +20,20 @@ HttpServer::~HttpServer()
     }
 }
 
-void HttpServer::Init()
+HttpServer *HttpServer::GetInstance()
 {
-    if (InitServer() == false) {
+    static HttpServer httpServer;
+    return &httpServer;
+}
+
+void HttpServer::Init(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog,
+    const int epollSize)
+{
+    if (InitServer(ipAddr, portId, backlog) == false) {
         return;
     }
 
-    if (InitEpollFd() == false) {
+    if (InitEpollFd(epollSize) == false) {
         return;
     }
 
@@ -35,10 +41,10 @@ void HttpServer::Init()
         return;
     }
 
-    EventLoop();
+    EventLoop(epollSize);
 }
 
-bool HttpServer::InitServer()
+bool HttpServer::InitServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog)
 {
     if (m_server != -1) {
         printf("EVENT  Server alreadly exists.\n");
@@ -51,7 +57,7 @@ bool HttpServer::InitServer()
         return false;
     }
 
-    in_addr_t ipNum = inet_addr(m_ipAddr.c_str());
+    in_addr_t ipNum = inet_addr(ipAddr);
     if (ipNum == INADDR_NONE) {
         printf("ERROR  Invalid ip address.\n");
         return false;
@@ -60,15 +66,15 @@ bool HttpServer::InitServer()
     struct sockaddr_in server_addr = { 0 };
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = ipNum;
-    server_addr.sin_port = htons(m_port);
+    server_addr.sin_port = htons(portId);
     if (bind(m_server, reinterpret_cast<struct sockaddr *>(&server_addr), sizeof(server_addr)) == -1) {
         close(m_server);
         m_server = -1;
-        printf("ERROR  server bind fail: %s:%hu.\n", m_ipAddr.c_str(), m_port);
+        printf("ERROR  server bind fail: %s:%hu.\n", ipAddr, portId);
         return false;
     }
 
-    if (listen(m_server, m_backlog) == -1) {
+    if (listen(m_server, backlog) == -1) {
         close(m_server);
         m_server = -1;
         printf("ERROR  server listen fail.\n");
@@ -78,13 +84,13 @@ bool HttpServer::InitServer()
     return true;
 }
 
-bool HttpServer::InitEpollFd()
+bool HttpServer::InitEpollFd(const int epollSize)
 {
     if (m_efd != -1) {
         return true;
     }
 
-    m_efd = epoll_create(m_epollSize);
+    m_efd = epoll_create(epollSize);
     if (m_efd == -1) {
         printf("ERROR  epoll_create fail.\n");
         return false;
@@ -107,9 +113,9 @@ bool HttpServer::RegisterServerReadEvent()
     return true;
 }
 
-void HttpServer::EventLoop()
+void HttpServer::EventLoop(const int epollSize)
 {
-    struct epoll_event *events = new struct epoll_event[m_epollSize];
+    struct epoll_event *events = new struct epoll_event[epollSize];
     if (events == nullptr) {
         printf("ERROR  Allooc epoll_event memory fail.\n");
         return;
@@ -117,7 +123,7 @@ void HttpServer::EventLoop()
 
     bool stopFlag = false;
     while (!stopFlag) {
-        int ret = epoll_wait(m_efd, events, m_epollSize, -1);
+        int ret = epoll_wait(m_efd, events, epollSize, -1);
         if (ret == -1) {
             delete[] events;
             return;
