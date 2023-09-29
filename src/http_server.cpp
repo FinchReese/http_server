@@ -1,13 +1,13 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <sys/poll.h>
+#include <sys/epoll.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <http_server.h>
 
 const unsigned int MAX_READ_BUFF_LEN = 1024; // 每次从客户端最多读取1024字节数据到缓冲区
 
-HttpServer::HttpServer(const std::string ipAddr, const unsigned short int portId,  const unsigned int backlog,
-    const int epollSize)
+HttpServer::HttpServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog, const int epollSize)
     : m_ipAddr(ipAddr), m_port(portId), m_server(-1), m_backlog(backlog), m_efd(-1), m_epollSize(epollSize)
 {}
 
@@ -15,6 +15,9 @@ HttpServer::~HttpServer()
 {
     if (m_server != -1) {
         close(m_server);
+    }
+    if (m_efd != -1) {
+        close(m_efd);
     }
 }
 
@@ -33,7 +36,6 @@ void HttpServer::Init()
     }
 
     EventLoop();
-
 }
 
 bool HttpServer::InitServer()
@@ -96,7 +98,7 @@ bool HttpServer::RegisterServerReadEvent()
     struct epoll_event serverEvent = { 0 };
     serverEvent.events = EPOLLIN;
     serverEvent.data.fd = m_server;
-    ret = epoll_ctl(m_efd, EPOLL_CTL_ADD, m_server, serverEvent);
+    int ret = epoll_ctl(m_efd, EPOLL_CTL_ADD, m_server, &serverEvent);
     if (ret == -1) {
         printf("ERROR  Register server read event fail.\n");
         return false;
@@ -115,7 +117,7 @@ void HttpServer::EventLoop()
 
     bool stopFlag = false;
     while (!stopFlag) {
-        ret = epoll_wait(m_efd, events, m_epollSize, -1);
+        int ret = epoll_wait(m_efd, events, m_epollSize, -1);
         if (ret == -1) {
             delete[] events;
             return;
@@ -146,14 +148,14 @@ void HttpServer::HandleServerReadEvent()
         printf("ERROR  accept fail.\n");
         return;
     }
-    printf("EVENT  new connect: client[%d] with %s:%hu.\n", client, inet_ntoa(clientAddr.sin_addr.s_addr),
+    printf("EVENT  new connect: client[%d] with %s:%hu.\n", client, inet_ntoa(clientAddr.sin_addr),
         ntohs(clientAddr.sin_port));
 
     // 注册客户端的监听读事件
     struct epoll_event clientEvent = { 0 };
     clientEvent.events = EPOLLIN;
     clientEvent.data.fd = client;
-    ret = epoll_ctl(m_efd, EPOLL_CTL_ADD, client, &clientEvent);
+    int ret = epoll_ctl(m_efd, EPOLL_CTL_ADD, client, &clientEvent);
     if (ret == -1) {
         printf("ERROR  epoll_ctl fail.\n");
         close(client);
@@ -166,7 +168,7 @@ void HttpServer::HandleClientReadEvent(const int client)
     char readBuff[MAX_READ_BUFF_LEN + 1] = { 0 };
     ssize_t n = read(client, readBuff, MAX_READ_BUFF_LEN);
     if (n <= 0) {
-        ret = epoll_ctl(m_efd, EPOLL_CTL_DEL, client, NULL);
+        int ret = epoll_ctl(m_efd, EPOLL_CTL_DEL, client, NULL);
         if (ret == -1) {
             return;
         }
@@ -179,7 +181,7 @@ void HttpServer::HandleClientReadEvent(const int client)
         if (ret == -1) {
             printf("DEBUG  client recv msg:\n%s\n", readBuff);
         } else {
-        printf("DEBUG  client %s:%hu recv msg:\n%s\n", inet_ntoa(clientAddr.sin_addr.s_addr),
+        printf("DEBUG  client %s:%hu recv msg:\n%s\n", inet_ntoa(clientAddr.sin_addr),
             ntohs(clientAddr.sin_port), readBuff);
         }
 

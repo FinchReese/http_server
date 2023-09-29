@@ -1,11 +1,12 @@
 #ifndef HTTP_SERVER_H
 #define HTTP_SERVER
 
-#include <string.h>
+#include <string>
 
 class HttpServer {
 public:
-    HttpServer(const std::string ipAddr, const unsigned short int portId, const unsigned int backlog);
+    HttpServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog,
+        const int epollSize);
     ~HttpServer();
     void Init();
 private:
