@@ -48,7 +48,7 @@ bool HttpServer::InitServer(const char *ipAddr, const unsigned short int portId,
 {
     if (m_server != -1) {
         printf("EVENT  Server alreadly exists.\n");
-        return true;
+        return false;
     }
 
     m_server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -87,7 +87,7 @@ bool HttpServer::InitServer(const char *ipAddr, const unsigned short int portId,
 bool HttpServer::InitEpollFd(const int epollSize)
 {
     if (m_efd != -1) {
-        return true;
+        return false;
     }
 
     m_efd = epoll_create(epollSize);
