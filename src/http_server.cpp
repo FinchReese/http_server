@@ -3,9 +3,14 @@
 #include <sys/epoll.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <http_server.h>
+#include <signal.h>
+#include <errno.h>
+#include "http_server.h"
 
 const unsigned int MAX_READ_BUFF_LEN = 1024; // 每次从客户端最多读取1024字节数据到缓冲区
+const time_t TIMER_INTERVAL = 5; // 定时器时间间隔定为5S
+
+int HttpServer::m_pipefd[2] = { -1, -1 };
 
 HttpServer::HttpServer() : m_server(-1), m_efd(-1)
 {}
@@ -41,7 +46,26 @@ void HttpServer::Init(const char *ipAddr, const unsigned short int portId,  cons
         return;
     }
 
+    if (InitPipeFd() == false) {
+        return;
+    }
+    // 注册SIGTERM信号的监听
+    if (RegisterListenSignal(SIGALRM) == false) {
+        ClosePipeFd();
+        return;
+    }
+    // 注册SIGTERM信号的监听
+    if (RegisterListenSignal(SIGTERM) == false) {
+        ClosePipeFd();
+        return;
+    }
+    // 注册m_pipefd[1]读事件的监听
+    if (RegisterPipeReadEvent() == false) {
+        ClosePipeFd();
+        return;
+    }
     EventLoop(epollSize);
+    ClosePipeFd();
 }
 
 bool HttpServer::InitServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog)
@@ -113,8 +137,61 @@ bool HttpServer::RegisterServerReadEvent()
     return true;
 }
 
+bool HttpServer::InitPipeFd()
+{
+    int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, m_pipefd);
+    if (ret == -1) {
+        return false;
+    }
+    return true;
+}
+
+void HttpServer::ClosePipeFd()
+{
+    close(m_pipefd[0]);
+    m_pipefd[0] == -1;
+    close(m_pipefd[1]);
+    m_pipefd[1] == -1;
+}
+
+bool HttpServer::RegisterListenSignal(const int signalId)
+{
+    struct sigaction sa = { 0 };
+    sa.sa_handler = WriteSignalToPipeFd;
+    sigfillset(&sa.sa_mask);
+    sa.sa_flags |= SA_RESTART;
+    if (sigaction(signalId, &sa, NULL) == -1) {
+        return false;
+    }
+    return true;
+}
+
+void HttpServer::WriteSignalToPipeFd(int signalId)
+{
+    int tmpErrno = errno;
+    ssize_t ret = write(m_pipefd[0], reinterpret_cast<const int *>(&signalId), sizeof(signalId));
+    printf("DEBUG  WriteSignalToPipeFd signalId=%d, ret=%ld, tmpErrno=%d, errno=%d\n",
+        signalId, ret, tmpErrno, errno);
+    errno = tmpErrno;
+}
+
+bool HttpServer::RegisterPipeReadEvent()
+{
+    struct epoll_event pipeEvent = { 0 };
+    pipeEvent.events = EPOLLIN;
+    pipeEvent.data.fd = m_pipefd[1];
+    int ret = epoll_ctl(m_efd, EPOLL_CTL_ADD, m_pipefd[1], &pipeEvent);
+    if (ret == -1) {
+        printf("ERROR  Register pipe read event fail.\n");
+        return false;
+    }
+    return true;
+}
+
 void HttpServer::EventLoop(const int epollSize)
 {
+    // 启动alarm定时器
+    alarm(TIMER_INTERVAL);
     struct epoll_event *events = new struct epoll_event[epollSize];
     if (events == nullptr) {
         printf("ERROR  Allooc epoll_event memory fail.\n");
@@ -125,8 +202,13 @@ void HttpServer::EventLoop(const int epollSize)
     while (!stopFlag) {
         int ret = epoll_wait(m_efd, events, epollSize, -1);
         if (ret == -1) {
-            delete[] events;
-            return;
+            printf("ERROR  epoll_wait fail, errno = %d.\n", errno);
+            if (errno == EINTR) {
+                continue;
+            } else {
+                delete[] events;
+                return;
+            }
         }
         for (unsigned int i = 0; i < static_cast<unsigned int>(ret); ++i) {
             if (events[i].events & EPOLLIN == 0) {
@@ -135,6 +217,8 @@ void HttpServer::EventLoop(const int epollSize)
             int socket = events[i].data.fd;
             if (socket == m_server) {
                 HandleServerReadEvent();
+            } else if (socket == m_pipefd[1]) {
+                HandleSignalEvent();
             } else {
                 HandleClientReadEvent(socket);
             }
@@ -169,6 +253,22 @@ void HttpServer::HandleServerReadEvent()
     }
 }
 
+void HttpServer::HandleSignalEvent()
+{
+    printf("DEBUG  HandleSignalEvent\n");
+    const unsigned int maxSignalNum = 1024; // 读取信号数量最大值为1024
+    int signalList[maxSignalNum] = { 0 };
+    ssize_t readBytes = read(m_pipefd[1], signalList, maxSignalNum);
+    printf("DEBUG  HandleSignalEvent readBytes=%ld\n", readBytes);
+    if (readBytes == -1) {
+        return;
+    }
+    for (unsigned int i = 0; i < static_cast<unsigned int>(readBytes) / sizeof(int); i++) {
+        int signalId = signalList[i];
+        printf("EVENT Get signal: %d\n", signalId);
+    }   
+}
+
 void HttpServer::HandleClientReadEvent(const int client)
 {
     char readBuff[MAX_READ_BUFF_LEN + 1] = { 0 };
@@ -190,6 +290,5 @@ void HttpServer::HandleClientReadEvent(const int client)
         printf("DEBUG  client %s:%hu recv msg:\n%s\n", inet_ntoa(clientAddr.sin_addr),
             ntohs(clientAddr.sin_port), readBuff);
         }
-
     }
 }

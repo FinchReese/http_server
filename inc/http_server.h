@@ -14,12 +14,19 @@ private:
     bool InitServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog);
     bool InitEpollFd(const int epollSize);
     bool RegisterServerReadEvent();
+    static bool InitPipeFd();
+    static void ClosePipeFd();
+    bool RegisterListenSignal(const int signalId);
+    static void WriteSignalToPipeFd(int signalId);
+    bool RegisterPipeReadEvent();
     void EventLoop(const int epollSize);
     void HandleServerReadEvent();
+    void HandleSignalEvent();
     void HandleClientReadEvent(const int client);
 private:
     int m_server;
     int m_efd;
+    static int m_pipefd[2];
 };
 
 #endif
