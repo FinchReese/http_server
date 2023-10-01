@@ -199,6 +199,7 @@ void HttpServer::EventLoop(const int epollSize)
     }
 
     bool stopFlag = false;
+    bool timeout = false;
     while (!stopFlag) {
         int ret = epoll_wait(m_efd, events, epollSize, -1);
         if (ret == -1) {
@@ -218,10 +219,15 @@ void HttpServer::EventLoop(const int epollSize)
             if (socket == m_server) {
                 HandleServerReadEvent();
             } else if (socket == m_pipefd[1]) {
-                HandleSignalEvent();
+                HandleSignalEvent(stopFlag, timeout);
             } else {
                 HandleClientReadEvent(socket);
             }
+        }
+        if (timeout) {
+            printf("EVENT Handle timer event.\n");
+            alarm(TIMER_INTERVAL);
+            timeout = false;
         }
     }
 
@@ -253,20 +259,30 @@ void HttpServer::HandleServerReadEvent()
     }
 }
 
-void HttpServer::HandleSignalEvent()
+void HttpServer::HandleSignalEvent(bool &stopFlag, bool &timeout)
 {
-    printf("DEBUG  HandleSignalEvent\n");
     const unsigned int maxSignalNum = 1024; // 读取信号数量最大值为1024
     int signalList[maxSignalNum] = { 0 };
     ssize_t readBytes = read(m_pipefd[1], signalList, maxSignalNum);
-    printf("DEBUG  HandleSignalEvent readBytes=%ld\n", readBytes);
     if (readBytes == -1) {
         return;
     }
     for (unsigned int i = 0; i < static_cast<unsigned int>(readBytes) / sizeof(int); i++) {
         int signalId = signalList[i];
-        printf("EVENT Get signal: %d\n", signalId);
-    }   
+        switch (signalId) {
+            case SIGTERM: {
+                stopFlag = true;
+                break;
+            }
+            case SIGALRM: {
+                timeout = true;
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+    }
 }
 
 void HttpServer::HandleClientReadEvent(const int client)

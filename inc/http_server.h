@@ -21,7 +21,7 @@ private:
     bool RegisterPipeReadEvent();
     void EventLoop(const int epollSize);
     void HandleServerReadEvent();
-    void HandleSignalEvent();
+    void HandleSignalEvent(bool &stopFlag, bool &timeout);
     void HandleClientReadEvent(const int client);
 private:
     int m_server;
