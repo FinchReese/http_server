@@ -83,6 +83,8 @@ bool HttpServer::InitServer(const char *ipAddr, const unsigned short int portId,
 
     in_addr_t ipNum = inet_addr(ipAddr);
     if (ipNum == INADDR_NONE) {
+        close(m_server);
+        m_server = -1;       
         printf("ERROR  Invalid ip address.\n");
         return false;
     }
