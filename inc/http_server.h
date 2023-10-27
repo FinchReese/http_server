@@ -2,6 +2,9 @@
 #define HTTP_SERVER
 
 #include <string>
+#include "min_heap.h"
+#include "client_expire.h"
+
 
 class HttpServer {
 public:
@@ -27,6 +30,7 @@ private:
     int m_server;
     int m_efd;
     static int m_pipefd[2];
+    MinHeap<ClientExpire> m_clientExpireHeap;
 };
 
 #endif

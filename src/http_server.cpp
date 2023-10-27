@@ -9,10 +9,11 @@
 
 const unsigned int MAX_READ_BUFF_LEN = 1024; // 每次从客户端最多读取1024字节数据到缓冲区
 const time_t TIMER_INTERVAL = 5; // 定时器时间间隔定为5S
+const unsigned int LIMIT_FD = 65535; // 文件描述符最多有65535个
 
 int HttpServer::m_pipefd[2] = { -1, -1 };
 
-HttpServer::HttpServer() : m_server(-1), m_efd(-1)
+HttpServer::HttpServer() : m_server(-1), m_efd(-1), m_clientExpireHeap(LIMIT_FD)
 {}
 
 HttpServer::~HttpServer()
@@ -259,6 +260,16 @@ void HttpServer::HandleServerReadEvent()
         close(client);
         return;
     }
+    // 将客户端超时信息写入最小堆
+    time_t expire;
+    expire = time(NULL);
+    ClientExpire clientExpire(client, expire);
+    bool ret = m_clientExpireHeap.push(clientExpire);
+    if (!ret) {
+        epoll_ctl(m_efd, EPOLL_CTL_DEL, client, NULL);
+        printf("ERROR  push clientExpire fail.\n");
+        close(client);      
+    }
 }
 
 void HttpServer::HandleSignalEvent(bool &stopFlag, bool &timeout)
@@ -309,4 +320,9 @@ void HttpServer::HandleClientReadEvent(const int client)
             ntohs(clientAddr.sin_port), readBuff);
         }
     }
+}
+
+void HttpServer::HandleTimeoutEvent()
+{
+
 }
