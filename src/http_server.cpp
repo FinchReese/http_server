@@ -337,7 +337,7 @@ void HttpServer::HandleTimeoutEvent()
     currentExpire = time(NULL);
     ClientExpire tmp;
     while (m_clientExpireHeap.top(tmp)) {
-        if (tmp.m_expire >= currentExpire) {
+        if (tmp.expire >= currentExpire) {
             break;
         }
         (void)m_clientExpireHeap.pop(tmp);

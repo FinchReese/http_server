@@ -4,9 +4,12 @@
 #include <time.h>
 
 typedef struct {
-    int m_clientFd;
-    time_t m_expire;
+    int clientFd;
+    time_t expire;
 } ClientExpire;
+
+const unsigned int MAX_SOCKET_FD = 0xFFFF; // 套接字最大值是0xFFFF
+const unsigned int MAX_SOCKET_NUM = MAX_SOCKET_FD + 1; // 套接字最大数量等于套接字最大值+1
 
 class ClientExpireMinHeap {
 public:
@@ -25,6 +28,7 @@ private:
     unsigned int m_capacity;
     unsigned int m_currentSize;
     ClientExpire *m_heap;
+    unsigned int m_clientIdxList[MAX_SOCKET_NUM]; // 记录客户端socket在m_heap的下标
 
 };
 #endif
