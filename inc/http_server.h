@@ -26,6 +26,7 @@ private:
     void HandleServerReadEvent();
     void HandleSignalEvent(bool &stopFlag, bool &timeout);
     void HandleClientReadEvent(const int client);
+    void HandleTimeoutEvent();
 private:
     int m_server;
     int m_efd;

@@ -9,6 +9,7 @@
 
 const unsigned int MAX_READ_BUFF_LEN = 1024; // 每次从客户端最多读取1024字节数据到缓冲区
 const time_t TIMER_INTERVAL = 5; // 定时器时间间隔定为5S
+const time_t CLIENT_EXPIRE_THRESHOLD = 15; // 客户端超时时间定为15S
 const unsigned int LIMIT_FD = 65535; // 文件描述符最多有65535个
 
 int HttpServer::m_pipefd[2] = { -1, -1 };
@@ -228,7 +229,7 @@ void HttpServer::EventLoop(const int epollSize)
             }
         }
         if (timeout) {
-            printf("EVENT Handle timer event.\n");
+            HandleTimeoutEvent();
             alarm(TIMER_INTERVAL);
             timeout = false;
         }
@@ -263,7 +264,7 @@ void HttpServer::HandleServerReadEvent()
     // 将客户端超时信息写入最小堆
     time_t expire;
     expire = time(NULL);
-    ClientExpire clientExpire(client, expire);
+    ClientExpire clientExpire(client, expire + CLIENT_EXPIRE_THRESHOLD);
     bool ret = m_clientExpireHeap.push(clientExpire);
     if (!ret) {
         epoll_ctl(m_efd, EPOLL_CTL_DEL, client, NULL);
@@ -319,10 +320,19 @@ void HttpServer::HandleClientReadEvent(const int client)
         printf("DEBUG  client %s:%hu recv msg:\n%s\n", inet_ntoa(clientAddr.sin_addr),
             ntohs(clientAddr.sin_port), readBuff);
         }
+        // 需要更新最小堆中对应节点的expire
     }
 }
 
 void HttpServer::HandleTimeoutEvent()
 {
-
+    time_t currentExpire;
+    currentExpire = time(NULL);
+    ClientExpire tmp;
+    while (m_clientExpireHeap.top(tmp)) {
+        if (tmp.m_expire >= currentExpire) {
+            break;
+        }
+        (void)m_clientExpireHeap.pop(tmp);
+    }
 }
