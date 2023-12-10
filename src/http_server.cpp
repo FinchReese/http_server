@@ -73,7 +73,7 @@ void HttpServer::Init(const char *ipAddr, const unsigned short int portId,  cons
 bool HttpServer::InitServer(const char *ipAddr, const unsigned short int portId,  const unsigned int backlog)
 {
     if (m_server != -1) {
-        printf("EVENT  Server alreadly exists.\n");
+        printf("ERROR  Server alreadly exists.\n");
         return false;
     }
 
@@ -83,11 +83,15 @@ bool HttpServer::InitServer(const char *ipAddr, const unsigned short int portId,
         return false;
     }
 
+    if (ipAddr == nullptr) {
+        printf("ERROR  ipAddr is null.\n");
+        return false;
+    }
     in_addr_t ipNum = inet_addr(ipAddr);
     if (ipNum == INADDR_NONE) {
         close(m_server);
         m_server = -1;       
-        printf("ERROR  Invalid ip address.\n");
+        printf("ERROR  Invalid ip address: %s.\n", ipAddr);
         return false;
     }
 
@@ -115,6 +119,7 @@ bool HttpServer::InitServer(const char *ipAddr, const unsigned short int portId,
 bool HttpServer::InitEpollFd(const int epollSize)
 {
     if (m_efd != -1) {
+        printf("ERROR  Epoll alreadly exists.\n");
         return false;
     }
 
