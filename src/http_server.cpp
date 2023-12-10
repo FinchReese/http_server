@@ -150,6 +150,7 @@ bool HttpServer::InitPipeFd()
 {
     int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, m_pipefd);
     if (ret == -1) {
+        printf("ERROR  socketpair fail.\n");
         return false;
     }
     return true;
