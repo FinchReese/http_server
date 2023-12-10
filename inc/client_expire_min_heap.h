@@ -20,6 +20,8 @@ public:
     bool push(const ClientExpire &node);
     bool pop(ClientExpire &node);
     bool top(ClientExpire &node);
+    bool modify(const ClientExpire &node);
+    bool Delete(const int clientFd);
 private:
     void siftDown(const unsigned int startIdx);
     void siftUp(const unsigned int startIdx);

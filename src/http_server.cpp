@@ -316,6 +316,8 @@ void HttpServer::HandleClientReadEvent(const int client)
             return;
         }
         close(client);
+        // 超时列表移除该客户端
+        m_clientExpireHeap.Delete(client);
     } else {
         // 调试时，只打印收到的信息，先不回复
         struct sockaddr_in clientAddr = { 0 };
@@ -328,7 +330,15 @@ void HttpServer::HandleClientReadEvent(const int client)
             ntohs(clientAddr.sin_port), readBuff);
         }
         // 需要更新最小堆中对应节点的expire
+        time_t expire;
+        expire = time(NULL);
+        ClientExpire clientExpire(client, expire + CLIENT_EXPIRE_THRESHOLD);
+        bool ret = m_clientExpireHeap.modify(clientExpire);
+        if (!ret) {
+            printf("ERROR  modify clientExpire fail.\n");
+        }
     }
+
 }
 
 void HttpServer::HandleTimeoutEvent()
@@ -341,5 +351,11 @@ void HttpServer::HandleTimeoutEvent()
             break;
         }
         (void)m_clientExpireHeap.pop(tmp);
+        int client = tmp.clientFd;
+        int ret = epoll_ctl(m_efd, EPOLL_CTL_DEL, client, NULL);
+        if (ret == -1) {
+            return;
+        }
+        close(client);
     }
 }

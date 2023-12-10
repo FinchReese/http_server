@@ -208,3 +208,19 @@ bool ClientExpireMinHeap::modify(const ClientExpire &node)
 
     return true;
 }
+
+bool ClientExpireMinHeap::Delete(const int clientFd)
+{
+    if (clientFd < 0 || clientFd > MAX_SOCKET_FD) {
+        return false;
+    }
+
+    unsigned int idx = m_clientIdxList[clientFd];
+    m_clientIdxList[clientFd] = INVALID_CLINET_INDEX;
+    m_heap[idx] = m_heap[m_currentSize - 1];
+    m_currentSize--;
+    m_clientIdxList[m_heap[m_currentSize - 1].clientFd] = idx;
+    siftDown(idx);
+
+    return true;
+}
