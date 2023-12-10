@@ -171,6 +171,7 @@ bool HttpServer::RegisterListenSignal(const int signalId)
     sigfillset(&sa.sa_mask);
     sa.sa_flags |= SA_RESTART;
     if (sigaction(signalId, &sa, NULL) == -1) {
+        printf("ERROR  sigaction fail， signalId = %d.\n", signalId);
         return false;
     }
     return true;
