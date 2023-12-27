@@ -17,6 +17,7 @@ public:
     ThreadPool(const unsigned int threadNum);
     ~ThreadPool();
     bool Init();
+    bool AddTask(const Task &task);
 private:
     static void *ThreadFunction(void *argv);
     void *Run(void *argv);

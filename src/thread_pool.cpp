@@ -54,6 +54,26 @@ bool ThreadPool::Init()
     return true;
 }
 
+bool ThreadPool::AddTask(const Task &task)
+{
+    if (pthread_mutex_lock(&m_mutex) != 0) {
+        return false;
+    }
+
+    if (m_queue.size() == m_queue.max_size()) {
+        (void)pthread_mutex_unlock(&m_mutex);
+        return false;
+    }
+    m_queue.push(task);
+    (void)pthread_mutex_unlock(&m_mutex);
+
+    if (sem_post(&m_sem) != 0) {
+        return false;
+    }
+
+    return true;
+}
+
 void *ThreadPool::ThreadFunction(void *argv)
 {
     ThreadPool *pool = reinterpret_cast<ThreadPool *>(argv);
