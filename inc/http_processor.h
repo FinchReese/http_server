@@ -9,6 +9,12 @@ enum GetALineStatus : unsigned char {
     GET_A_LINE_WRROR = 2,
 };
 
+enum HttpProcessState : unsigned int {
+    HTTP_PROCESS_STATE_PARSE_REQUEST_LINE = 0,
+    HTTP_PROCESS_STATE_PARSE_HEAD_FIELD = 1,
+    HTTP_PROCESS_STATE_PARSE_MESSAGE_BODY = 2,
+};
+
 class HttpProcessor {
 public:
     HttpProcessor(const int socketId);
@@ -21,8 +27,9 @@ private:
     char m_request[MAX_RECV_BUFF_LEN]; // 记录请求报文
     int m_socketId; // 对应的套接字id
     unsigned int m_currentRequestSize; // 记录当前收到的请求报文长度
-    unsigned int m_startIndex; // 解析报文的起始位置，是报文中每行的首字节
+    char *m_startPos; // 指向解析报文字段的起始位置
     unsigned int m_currentIndex; // 解析报文的当前位置
+    HttpProcessState m_processState;
 };
 
 
