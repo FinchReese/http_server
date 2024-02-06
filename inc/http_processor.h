@@ -21,6 +21,9 @@ public:
     ~HttpProcessor();
     bool Read();
     bool ProcessRequest();
+    GetALineStatus GetALine();
+    bool ParseRequestLine();
+    bool GetFieldSplitedByWhiteSpaceChars(char *&field);
 
 private:
     GetALineStatus GetALine();
