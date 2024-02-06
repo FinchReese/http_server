@@ -3,12 +3,8 @@
 
 const char *WHITE_SPACE_CHARS = " \t";
 
-HttpProcessor::HttpProcessor(socketId) : m_socketId(socketId), m_currentRequestSize(0),
-    m_startIndex(m_request), m_currentIndex(0), m_processState(HTTP_PROCESS_STATE_PARSE_REQUEST_LINE)
-{
-    (void)memset_s(m_request, sizeof(m_request), 0, sizeof(m_request));
-    (void)memset_s(m_method, sizeof(m_method), 0, sizeof(m_method));
-}
+HttpProcessor::HttpProcessor(socketId) : m_socketId(socketId)
+{}
 
 HttpProcessor::~HttpProcessor()
 {}
@@ -63,7 +59,19 @@ GetALineStatus HttpProcessor::GetALine()
     return GET_A_LINE_CONTINUE;
 }
 
-bool HttpProcessor::ParseMethod()
+bool HttpProcessor::ParseRequestLine()
+{
+    if (GetFieldSplitedByWhiteSpaceChars(m_method) == false) {
+        printf("ERROR Get method fail.\n");
+        return false;
+    }
+    if (GetFieldSplitedByWhiteSpaceChars(m_url) == false) {
+        printf("ERROR Get method fail.\n");
+        return false;
+    }
+}
+
+bool HttpProcessor::GetFieldSplitedByWhiteSpaceChars(char *&field)
 {
     char *ret = strpbrk(m_startIndex, WHITE_SPACE_CHARS);
     if (ret == nullptr) {
@@ -71,7 +79,7 @@ bool HttpProcessor::ParseMethod()
         return false;
     }
     *ret = '\0';
-    m_method = m_startIndex;
+    field = m_startIndex;
     ret++;
     m_startIndex = ret + strspn(ret, whiteSpaceChars);
     return true;
