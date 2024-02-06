@@ -30,6 +30,7 @@ private:
     char *m_startPos; // 指向解析报文字段的起始位置
     unsigned int m_currentIndex; // 解析报文的当前位置
     HttpProcessState m_processState;
+    char *m_method;
 };
 
 

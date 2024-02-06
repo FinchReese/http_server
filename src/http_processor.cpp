@@ -71,11 +71,8 @@ bool HttpProcessor::ParseMethod()
         return false;
     }
     *ret = '\0';
-    errno_t err = strcpy_s(m_method, sizeof(m_method), m_startIndex);
-    if (err != EOK) {
-        printf("ERROR copy method fail, origin string is %s", m_startIndex);
-        return false;
-    }
+    m_method = m_startIndex;
     ret++;
     m_startIndex = ret + strspn(ret, whiteSpaceChars);
+    return true;
 }
