@@ -2,6 +2,9 @@
 #include "http_processor.h"
 
 const char *WHITE_SPACE_CHARS = " \t";
+const char *GET_METHOD_STR = "GET";
+const char *URL_HTTP_PREFIX = "http://";
+const char URL_SPLIT_CHAR = '/';
 
 HttpProcessor::HttpProcessor(socketId) : m_socketId(socketId)
 {}
@@ -65,10 +68,31 @@ bool HttpProcessor::ParseRequestLine()
         printf("ERROR Get method fail.\n");
         return false;
     }
-    if (GetFieldSplitedByWhiteSpaceChars(m_url) == false) {
-        printf("ERROR Get method fail.\n");
+    if (strcasecmp(m_httpVersion, GET_METHOD_STR) != 0) {
+        printf("ERROR Support GET method only.\n");
         return false;
     }
+
+    if (GetFieldSplitedByWhiteSpaceChars(m_url) == false) {
+        printf("ERROR Get url fail.\n");
+        return false;
+    }
+    printf("EVENT Origin url: %s.\n", m_url);
+    if (strncasecmp(m_url, URL_HTTP_PREFIX, strlen(URL_HTTP_PREFIX)) == 0) {
+        m_url += strlen(URL_HTTP_PREFIX);
+        m_url = strchr(m_url, URL_SPLIT_CHAR);
+    }
+    if (m_url == nullptr || m_url[0] != URL_SPLIT_CHAR) {
+        printf("ERROR Invalid url.\n");
+        return false;
+    }
+    
+    m_httpVersion = m_startIndex;
+    if (strcasecmp(m_httpVersion, "HTTP/1.0") != 0) {
+        printf("ERROR Support HTTP/1.0 only.\n");
+        return false;
+    }
+    return true;
 }
 
 bool HttpProcessor::GetFieldSplitedByWhiteSpaceChars(char *&field)

@@ -35,6 +35,7 @@ private:
     HttpProcessState m_processState{ HTTP_PROCESS_STATE_PARSE_REQUEST_LINE };
     char *m_method{ nullptr };
     char *m_url{ nullptr };
+    char *m_httpVersion{ nullptr };
 };
 
 
