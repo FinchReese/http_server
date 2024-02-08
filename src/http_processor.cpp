@@ -160,3 +160,20 @@ void HttpProcessor::ParseConnection()
         m_keepAlive = true;
     }
 }
+
+ParseRequestReturnCode HttpProcessor::ParseContent()
+{
+    unsigned int parseSize = m_startPos - m_request; // 消息体前面信息所占字节数
+    if (m_contentLen > MAX_RECV_BUFF_LEN - parseSize) {
+        printf("ERROR invalid Content-Length, m_contentLen = %u, parseSize = %u\n",
+            m_contentLen, parseSize);
+        return PARSE_REQUEST_RETURN_CODE_ERROR;
+    }
+
+    if (m_currentRequestSize - parseSize >= m_contentLen) {
+        m_startPos[m_contentLen] = '\0';
+        return PARSE_REQUEST_RETURN_CODE_FINISH;
+    }
+
+    return PARSE_REQUEST_RETURN_CODE_CONTINUE;
+}
