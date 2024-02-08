@@ -105,7 +105,7 @@ ParseRequestReturnCode HttpProcessor::ParseRequestLine()
         return PARSE_REQUEST_RETURN_CODE_ERROR;
     }
     
-    m_httpVersion = m_startIndex;
+    m_httpVersion = m_startPos;
     if (strcasecmp(m_httpVersion, "HTTP/1.0") != 0) {
         printf("ERROR Support HTTP/1.0 only.\n");
         return PARSE_REQUEST_RETURN_CODE_ERROR;
@@ -115,21 +115,21 @@ ParseRequestReturnCode HttpProcessor::ParseRequestLine()
 
 bool HttpProcessor::GetFieldSplitedByWhiteSpaceChars(char *&field)
 {
-    char *ret = strpbrk(m_startIndex, WHITE_SPACE_CHARS);
+    char *ret = strpbrk(m_startPos, WHITE_SPACE_CHARS);
     if (ret == nullptr) {
-        printf("ERROR Can't find white-space char: %s\n", m_startIndex);
+        printf("ERROR Can't find white-space char: %s\n", m_startPos);
         return false;
     }
     *ret = '\0';
-    field = m_startIndex;
+    field = m_startPos;
     ret++;
-    m_startIndex = ret + strspn(ret, whiteSpaceChars);
+    m_startPos = ret + strspn(ret, whiteSpaceChars);
     return true;
 }
 
 ParseRequestReturnCode HttpProcessor::ParseHeadFields()
 {
-    if (m_startIndex == END_CHAR) {
+    if (m_startPos == END_CHAR) {
         if (m_contentLen != 0) {
             m_processState = HTTP_PROCESS_STATE_PARSE_MESSAGE_BODY;
             return ARSE_REQUEST_RETURN_CODE_CONTINUE;
@@ -139,10 +139,10 @@ ParseRequestReturnCode HttpProcessor::ParseHeadFields()
 
     for (unsigned int i = 0; i < KEY_NAME_AND_PARSE_FUNC_MAP_LIST_SIZE; ++i) {
         KeyNameAndParseFuncMap map = KEY_NAME_AND_PARSE_FUNC_MAP_LIST[i];
-        if (strncasecmp(m_startIndex, map.keyName, strlen(map.keyName)) == 0) {
-            m_startIndex += strlen(map.keyName);
-            m_startIndex += 1; // 跳过':'
-            m_startIndex += strspn(m_startIndex, "\t ");
+        if (strncasecmp(m_startPos, map.keyName, strlen(map.keyName)) == 0) {
+            m_startPos += strlen(map.keyName);
+            m_startPos += 1; // 跳过':'
+            m_startPos += strspn(m_startPos, "\t ");
             map.parseFunc();
         }
     }
@@ -151,12 +151,12 @@ ParseRequestReturnCode HttpProcessor::ParseHeadFields()
 
 void HttpProcessor::ParseContentLength()
 {
-    m_contentLen = atol(m_startIndex);
+    m_contentLen = atol(m_startPos);
 }
 
 void HttpProcessor::ParseConnection()
 {
-    if (strcasecmp(m_startIndex, KEEP_ALIVE_VALUE) == 0) {
+    if (strcasecmp(m_startPos, KEEP_ALIVE_VALUE) == 0) {
         m_keepAlive = true;
     }
 }
