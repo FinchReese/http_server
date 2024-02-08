@@ -148,6 +148,7 @@ ParseRequestReturnCode HttpProcessor::ParseRequestLine()
     }
     
     m_httpVersion = m_startPos;
+    m_startPos += (strlen(m_startPos) + 1);
     if (strcasecmp(m_httpVersion, "HTTP/1.0") != 0) {
         printf("ERROR Support HTTP/1.0 only.\n");
         return PARSE_REQUEST_RETURN_CODE_ERROR;
@@ -186,6 +187,7 @@ ParseRequestReturnCode HttpProcessor::ParseHeadFields()
             m_startPos += 1; // 跳过':'
             m_startPos += strspn(m_startPos, "\t ");
             map.parseFunc();
+            m_startPos += (strlen(m_startPos) + 1);
         }
     }
     return PARSE_REQUEST_RETURN_CODE_CONTINUE;
