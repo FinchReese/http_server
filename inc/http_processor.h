@@ -3,7 +3,7 @@
 
 const unsigned int MAX_RECV_BUFF_LEN = 2048;
 
-enum GetALineStatus : unsigned char {
+enum GetALineState : unsigned char {
     GET_A_LINE_OK = 0,
     GET_A_LINE_CONTINUE = 1,
     GET_A_LINE_ERROR = 2,
@@ -27,12 +27,12 @@ public:
     ~HttpProcessor();
     bool Read();
     bool ProcessRequest();
-    GetALineStatus GetALine();
+    GetALineState GetALine();
     ParseRequestReturnCode ParseRequestLine();
     bool GetFieldSplitedByWhiteSpaceChars(char *&field);
 
 private:
-    GetALineStatus GetALine();
+    GetALineState GetALine();
     char m_request[MAX_RECV_BUFF_LEN]{ 0 }; // 记录请求报文
     int m_socketId{ 0 }; // 对应的套接字id
     unsigned int m_currentRequestSize{ 0 }; // 记录当前收到的请求报文长度

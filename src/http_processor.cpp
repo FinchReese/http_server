@@ -42,12 +42,35 @@ bool HttpProcessor::Read()
     return true;
 }
 
-bool HttpProcessor::ProcessRequest()
+ParseRequestReturnCode HttpProcessor::ProcessRequest()
 {
-
+    GetALineState getALineState;
+    ParseRequestReturnCode ret;
+    while (true) {
+        getALineState = GetALine();
+        switch (getALineState) {
+            case GET_A_LINE_CONTINUE: {
+                return PARSE_REQUEST_RETURN_CODE_CONTINUE;
+            }
+            case GET_A_LINE_ERROR: {
+                return PARSE_REQUEST_RETURN_CODE_ERROR;
+            }
+            case GET_A_LINE_OK: {
+                ret = ParseSingleLine();
+                if (ret == PARSE_REQUEST_RETURN_CODE_CONTINUE) {
+                    break;
+                } else {
+                    return ret;
+                }
+            }
+            default: {
+                return PARSE_REQUEST_RETURN_CODE_ERROR;
+            }
+        }
+    }
 }
 
-GetALineStatus HttpProcessor::GetALine()
+GetALineState HttpProcessor::GetALine()
 {
     if (m_currentIndex >= m_currentRequestSize) {
         return GET_A_LINE_CONTINUE;
@@ -78,6 +101,25 @@ GetALineStatus HttpProcessor::GetALine()
         }
     }
     return GET_A_LINE_CONTINUE;
+}
+
+ParseRequestReturnCode HttpProcessor::ParseSingleLine()
+{
+    switch (m_processState) {
+        case HTTP_PROCESS_STATE_PARSE_REQUEST_LINE: {
+            return ParseRequestLine();
+        }
+        case HTTP_PROCESS_STATE_PARSE_HEAD_FIELD: {
+            return ParseHeadFields();
+        }
+        case PARSE_REQUEST_RETURN_CODE_CONTINUE: {
+            return ParseContent();
+        }
+        default: {
+            printf("ERROR Invalid state:%u.\n", m_processState);
+            return PARSE_REQUEST_RETURN_CODE_ERROR;
+        }
+    }
 }
 
 ParseRequestReturnCode HttpProcessor::ParseRequestLine()
