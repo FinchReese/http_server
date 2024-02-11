@@ -1,7 +1,7 @@
 #ifndef HTTP_PROCESSOR_H
 #define HTTP_PROCESSOR_H
 
-const unsigned int MAX_RECV_BUFF_LEN = 2048;
+const unsigned int MAX_READ_BUFF_LEN = 2048;
 
 enum GetALineState : unsigned char {
     GET_A_LINE_OK = 0,
@@ -33,7 +33,7 @@ public:
 
 private:
     GetALineState GetALine();
-    char m_request[MAX_RECV_BUFF_LEN]{ 0 }; // 记录请求报文
+    char m_request[MAX_READ_BUFF_LEN]{ 0 }; // 记录请求报文
     int m_socketId{ 0 }; // 对应的套接字id
     unsigned int m_currentRequestSize{ 0 }; // 记录当前收到的请求报文长度
     char *m_startPos{ nullptr}; // 指向解析报文字段的起始位置

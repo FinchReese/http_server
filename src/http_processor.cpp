@@ -33,7 +33,7 @@ HttpProcessor::~HttpProcessor()
 
 bool HttpProcessor::Read()
 {
-    ssize_t readSize = read(m_socketId, m_request + m_currentRequestSize, MAX_RECV_BUFF_LEN - m_currentRequestSize);
+    ssize_t readSize = read(m_socketId, m_request + m_currentRequestSize, MAX_READ_BUFF_LEN - m_currentRequestSize);
     if (readSize <= 0) {
         printf("ERROR read fail, socket id = %d\n", m_socketId);
         return false;
@@ -220,7 +220,7 @@ void HttpProcessor::ParseConnection()
 ParseRequestReturnCode HttpProcessor::ParseContent()
 {
     unsigned int parseSize = m_startPos - m_request; // 消息体前面信息所占字节数
-    if (m_contentLen > MAX_RECV_BUFF_LEN - parseSize) {
+    if (m_contentLen > MAX_READ_BUFF_LEN - parseSize) {
         printf("ERROR invalid Content-Length, m_contentLen = %u, parseSize = %u\n",
             m_contentLen, parseSize);
         return PARSE_REQUEST_RETURN_CODE_ERROR;
