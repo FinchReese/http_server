@@ -69,6 +69,8 @@ ParseRequestReturnCode HttpProcessor::ProcessRequest()
             }
         }
     }
+
+    return PARSE_REQUEST_RETURN_CODE_ERROR;
 }
 
 GetALineState HttpProcessor::GetALine()
@@ -113,7 +115,7 @@ ParseRequestReturnCode HttpProcessor::ParseSingleLine()
         case HTTP_PROCESS_STATE_PARSE_HEAD_FIELD: {
             return ParseHeadFields();
         }
-        case PARSE_REQUEST_RETURN_CODE_CONTINUE: {
+        case HTTP_PROCESS_STATE_PARSE_MESSAGE_BODY: {
             return ParseContent();
         }
         default: {
@@ -154,6 +156,8 @@ ParseRequestReturnCode HttpProcessor::ParseRequestLine()
         printf("ERROR Support HTTP/1.0 only.\n");
         return PARSE_REQUEST_RETURN_CODE_ERROR;
     }
+
+    m_processState = HTTP_PROCESS_STATE_PARSE_HEAD_FIELD;
     return PARSE_REQUEST_RETURN_CODE_CONTINUE;
 }
 
@@ -176,7 +180,7 @@ ParseRequestReturnCode HttpProcessor::ParseHeadFields()
     if (m_startPos == END_CHAR) {
         if (m_contentLen != 0) {
             m_processState = HTTP_PROCESS_STATE_PARSE_MESSAGE_BODY;
-            return ARSE_REQUEST_RETURN_CODE_CONTINUE;
+            return PARSE_REQUEST_RETURN_CODE_CONTINUE;
         }
         return PARSE_REQUEST_RETURN_CODE_FINISH;
     }
