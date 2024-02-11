@@ -5,6 +5,7 @@ const char *WHITE_SPACE_CHARS = " \t";
 const char *GET_METHOD_STR = "GET";
 const char *URL_HTTP_PREFIX = "http://";
 const char URL_SPLIT_CHAR = '/';
+const char HEAD_FIELD_SPLIT_CHAR = ':';
 const char END_CHAR = '\0';
 const char *CONTENT_LENGTH_KEY_NAME = "Content-Length";
 const char *CONNECTION_KEY_NAME = "Connection";
@@ -184,12 +185,19 @@ ParseRequestReturnCode HttpProcessor::ParseHeadFields()
         KeyNameAndParseFuncMap map = KEY_NAME_AND_PARSE_FUNC_MAP_LIST[i];
         if (strncasecmp(m_startPos, map.keyName, strlen(map.keyName)) == 0) {
             m_startPos += strlen(map.keyName);
+            if (m_startPos != HEAD_FIELD_SPLIT_CHAR) {
+                printf("ERROR invalid head field:%s.\n", m_startPos);
+                return PARSE_REQUEST_RETURN_CODE_ERROR;
+            }
             m_startPos += 1; // 跳过':'
             m_startPos += strspn(m_startPos, "\t ");
             map.parseFunc();
             m_startPos += (strlen(m_startPos) + 1);
+            return PARSE_REQUEST_RETURN_CODE_CONTINUE;
         }
     }
+
+    m_startPos += (strlen(m_startPos) + 1);
     return PARSE_REQUEST_RETURN_CODE_CONTINUE;
 }
 
