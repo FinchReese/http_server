@@ -2,6 +2,7 @@
 #define HTTP_PROCESSOR_H
 
 const unsigned int MAX_READ_BUFF_LEN = 2048;
+const unsigned int MAX_WRITE_BUFF_LEN = 1024;
 
 enum GetALineState : unsigned char {
     GET_A_LINE_OK = 0,
@@ -44,6 +45,8 @@ private:
     char *m_httpVersion{ nullptr };
     unsigned int m_contentLen{ 0 };
     bool m_keepAlive{ false };
+    char m_writeBuff[MAX_WRITE_BUFF_LEN]{ 0 }; // 记录请求报文
+    unsigned int m_writeSize{ 0 };
 };
 
 

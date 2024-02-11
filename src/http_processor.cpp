@@ -10,6 +10,8 @@ const char END_CHAR = '\0';
 const char *CONTENT_LENGTH_KEY_NAME = "Content-Length";
 const char *CONNECTION_KEY_NAME = "Connection";
 const char *KEEP_ALIVE_VALUE = "keep-alive";
+const char *CLOSE_ALIVE_VALUE = "close";
+const char *HTTP_VERSION = "HTTP/1.1";
 
 void (HttpProcessor::*ParseHeadFieldValueStr)();
 typedef struct {
@@ -233,3 +235,53 @@ ParseRequestReturnCode HttpProcessor::ParseContent()
 
     return PARSE_REQUEST_RETURN_CODE_CONTINUE;
 }
+
+bool HttpProcessor::AddStatusLine(const int status, const char *title)
+{
+    if (m_writeSize >= MAX_WRITE_BUFF_LEN) {
+        printf("ERROR Write buffer is full, m_writeSize = %u, \n", m_writeSize);
+        return false;
+    }
+    int ret = sprintf_s(m_writeBuff, MAX_WRITE_BUFF_LEN - m_writeSize, "%s %d %s\r\n",
+        HTTP_VERSION, status, title);
+    if (ret == -1) {
+        printf("ERROR Write buffer fail.\n");
+        return false;
+    }
+    m_writeSize += static_cast<unsigned int>(ret);
+
+    return true;
+}
+
+bool HttpProcessor::AddHeadField(const unsigned int contentLen)
+{
+    if (m_writeSize >= MAX_WRITE_BUFF_LEN) {
+        printf("ERROR Write buffer is full, m_writeSize = %u, \n", m_writeSize);
+        return false;
+    }
+    // 添加消息体长度
+    int ret = sprintf_s(m_writeBuff, MAX_WRITE_BUFF_LEN - m_writeSize,
+        "Content-Length: %d\r\n", contentLen);
+    if (ret == -1) {
+        printf("ERROR Write buffer fail.\n");
+        return false;
+    }
+    m_writeSize += static_cast<unsigned int>(ret);
+    // 添加连接方式
+    ret = sprintf_s(m_writeBuff, MAX_WRITE_BUFF_LEN - m_writeSize,
+        "Connection: %s\r\n", m_keepAlive ? KEEP_ALIVE_VALUE : CLOSE_ALIVE_VALUE);
+    if (ret == -1) {
+        printf("ERROR Write buffer fail.\n");
+        return false;
+    }
+    m_writeSize += static_cast<unsigned int>(ret);
+    // 添加空行
+    ret = sprintf_s(m_writeBuff, MAX_WRITE_BUFF_LEN - m_writeSize, "\r\n");
+    if (ret == -1) {
+        printf("ERROR Write buffer fail.\n");
+        return false;
+    }
+    m_writeSize += static_cast<unsigned int>(ret);
+    return true;
+}
+
