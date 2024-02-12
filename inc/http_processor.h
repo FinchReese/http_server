@@ -22,6 +22,14 @@ enum ParseRequestReturnCode: unsigned int {
     PARSE_REQUEST_RETURN_CODE_CONTINUE = 2, // 需要继续解析
 };
 
+enum ResponseStatusCode {
+    RESPONSE_STATUS_CODE_OK = 200, // 请求成功
+    RESPONSE_STATUS_CODE_BAD_REQUEST = 400, // 通用客户请求错误
+    RESPONSE_STATUS_CODE_FORBIDDEN = 403, // 访问被服务器禁止
+    RESPONSE_STATUS_CODE_NOT_FOUND = 404, // 资源没找到
+    RESPONSE_STATUS_CODE_INTERNAL_SERVER_ERROR = 500, // 通用服务器错误
+};
+
 class HttpProcessor {
 public:
     HttpProcessor(const int socketId);

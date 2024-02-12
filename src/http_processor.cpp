@@ -12,6 +12,15 @@ const char *CONNECTION_KEY_NAME = "Connection";
 const char *KEEP_ALIVE_VALUE = "keep-alive";
 const char *CLOSE_ALIVE_VALUE = "close";
 const char *HTTP_VERSION = "HTTP/1.1";
+const char *OK_TITLE = "OK";
+const char *BAD_REQUEST_TITLE = "Bad Request";
+const char *BAD_REQUEST_CONTENT = "Your request has bad syntax or is inherently impossible to satisfy.\n";
+const char *FORBIDDEN_TITLE = "Forbidden";
+const char *FORBIDDEN_CONTENT = "You don't have permission to get file from this server.\n";
+const char *NOT_FOUND_TITLE = "Not Found";
+const char *NOT_FOUND_CONTENT = "The request file was not found on this server.\n";
+const char *INTERNAL_SERVER_ERROR_TITLE = "Internal Server Error";
+const char *INTERNAL_SERVER_ERROR_CONTENT = "There was an unusual problem serving the requested file.\n";
 
 void (HttpProcessor::*ParseHeadFieldValueStr)();
 typedef struct {
@@ -239,7 +248,7 @@ ParseRequestReturnCode HttpProcessor::ParseContent()
 bool HttpProcessor::AddStatusLine(const int status, const char *title)
 {
     if (m_writeSize >= MAX_WRITE_BUFF_LEN) {
-        printf("ERROR Write buffer is full, m_writeSize = %u, \n", m_writeSize);
+        printf("ERROR Write buffer is full, m_writeSize = %u\n", m_writeSize);
         return false;
     }
     int ret = sprintf_s(m_writeBuff, MAX_WRITE_BUFF_LEN - m_writeSize, "%s %d %s\r\n",
@@ -256,7 +265,7 @@ bool HttpProcessor::AddStatusLine(const int status, const char *title)
 bool HttpProcessor::AddHeadField(const unsigned int contentLen)
 {
     if (m_writeSize >= MAX_WRITE_BUFF_LEN) {
-        printf("ERROR Write buffer is full, m_writeSize = %u, \n", m_writeSize);
+        printf("ERROR Write buffer is full, m_writeSize = %u\n", m_writeSize);
         return false;
     }
     // 添加消息体长度
@@ -285,3 +294,19 @@ bool HttpProcessor::AddHeadField(const unsigned int contentLen)
     return true;
 }
 
+bool HttpProcessor::AddContent(const char *content)
+{
+    if (m_writeSize >= MAX_WRITE_BUFF_LEN) {
+        printf("ERROR Write buffer is full, m_writeSize = %u\n", m_writeSize);
+        return false;
+    }
+
+    int ret = sprintf_s(m_writeBuff, MAX_WRITE_BUFF_LEN - m_writeSize, "%s\r\n",
+        content);
+    if (ret == -1) {
+        printf("ERROR Write buffer fail.\n");
+        return false;
+    }
+    m_writeSize += static_cast<unsigned int>(ret);
+    return true;
+}
