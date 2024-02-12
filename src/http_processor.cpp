@@ -35,9 +35,22 @@ const KeyNameAndParseFuncMap KEY_NAME_AND_PARSE_FUNC_MAP_LIST[] = {
     { CONTENT_LENGTH_KEY_NAME, HttpProcessor::ParseContentLength },
     { CONNECTION_KEY_NAME, HttpProcessor::ParseConnection },
 };
-
 const KeyNameAndParseFuncMap KEY_NAME_AND_PARSE_FUNC_MAP_LIST_SIZE =
     sizeof(KEY_NAME_AND_PARSE_FUNC_MAP_LIST) / sizeof(KEY_NAME_AND_PARSE_FUNC_MAP_LIST[0]);
+
+typedef struct {
+    ResponseStatusCode statusCode;
+    const char *statusTitle;
+    const char *statusContent;
+} StatusInfo;
+
+const StatusInfo ERROR_STATUS_INFO_LIST[] = {
+    { RESPONSE_STATUS_CODE_BAD_REQUEST, BAD_REQUEST_TITLE, BAD_REQUEST_CONTENT },
+    { RESPONSE_STATUS_CODE_FORBIDDEN, FORBIDDEN_TITLE, FORBIDDEN_CONTENT },
+    { RESPONSE_STATUS_CODE_NOT_FOUND, NOT_FOUND_TITLE, NOT_FOUND_CONTENT },
+    { RESPONSE_STATUS_CODE_INTERNAL_SERVER_ERROR, INTERNAL_SERVER_ERROR_TITLE, INTERNAL_SERVER_ERROR_CONTENT },
+};
+const unsigned int ERROR_STATUS_INFO_LIST_SIZE = sizeof(ERROR_STATUS_INFO_LIST) / sizeof(ERROR_STATUS_INFO_LIST[0]);
 
 HttpProcessor::HttpProcessor(socketId, const char *sourceDir) : m_socketId(socketId), m_sourceDir(sourceDir)
 {}
@@ -57,7 +70,7 @@ bool HttpProcessor::Read()
     return true;
 }
 
-ParseRequestReturnCode HttpProcessor::ProcessRequest()
+ParseRequestReturnCode HttpProcessor::ParseRequest()
 {
     GetALineState getALineState;
     ParseRequestReturnCode ret;
@@ -248,9 +261,24 @@ ParseRequestReturnCode HttpProcessor::ParseContent()
     return PARSE_REQUEST_RETURN_CODE_CONTINUE;
 }
 
-bool HttpProcessor::Response()
+bool HttpProcessor::Response(const ParseRequestReturnCode returnCode)
 {
-
+    switch (returnCode) {
+        case PARSE_REQUEST_RETURN_CODE_FINISH: {
+            ResponseStatusCode statusCode = HandleRequest();
+            break;
+        }
+        case PARSE_REQUEST_RETURN_CODE_ERROR: {
+            break;
+        }
+        case ARSE_REQUEST_RETURN_CODE_CONTINUE: {
+            return true;
+        }
+        default: {
+            break;
+        }
+    }
+    return false;
 }
 
 ResponseStatusCode HttpProcessor::HandleRequest()
@@ -285,8 +313,58 @@ ResponseStatusCode HttpProcessor::HandleRequest()
     }
 
     m_fileAddr = reinterpret_cast<char *>mmap(0, fileStat, PORT_READ, MAP_PRIVATE, fd, 0);
+    m_fileSize = fileStat.st_size;
     close(fd);
     return RESPONSE_STATUS_CODE_OK;
+}
+
+bool HttpProcessor::AddResponse(const ResponseStatusCode statusCode)
+{
+    for (unsigned int i = 0; i < ERROR_STATUS_INFO_LIST_SIZE; ++i) {
+        if (statusCode == RESPONSE_STATUS_CODE_OK) {
+            return AddResponseInNormalCase();
+        }
+        if (statusCode == ERROR_STATUS_INFO_LIST[i].statusCode) {
+            return AddResponseInErrorCase(ERROR_STATUS_INFO_LIST[i]);
+        }
+    }
+
+    printf("ERROR Invalid statusCode: %u.\n", statusCode);
+    return false;
+}
+bool HttpProcessor::AddResponseInNormalCase()
+{
+    if (!AddStatusLine(RESPONSE_STATUS_CODE_OK, OK_TITLE)) {
+        return false;
+    }
+    if (!AddHeadField(strlen(OK_TITLE))) {
+        return false;
+    }
+
+    m_iov[0].iov_base = m_writeBuff;
+    m_iov[0].iov_len = m_writeSize;
+    m_iov[1].iov_base = m_fileAddr;
+    m_iov[1].iov_len = m_fileSize;
+    m_cnt = 2;
+    return true;
+}
+
+bool HttpProcessor::AddResponseInErrorCase(const StatusInfo statusInfo)
+{
+    if (!AddStatusLine(statusInfo.statusCode, statusInfo.statusTitle)) {
+        return false;
+    }
+    if (!AddHeadField(strlen(statusInfo.statusTitle))) {
+        return false;
+    }
+    if (!AddContent(statusInfo.statusContent)) {
+        return false;
+    }
+
+    m_iov[0].iov_base = m_writeBuff;
+    m_iov[0].iov_len = m_writeSize;
+    m_cnt = 1;
+    return true;
 }
 
 bool HttpProcessor::AddStatusLine(const int status, const char *title)
