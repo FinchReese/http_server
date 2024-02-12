@@ -1,6 +1,8 @@
 #ifndef HTTP_PROCESSOR_H
 #define HTTP_PROCESSOR_H
 
+#include <sys/uio.h>
+
 const unsigned int MAX_READ_BUFF_LEN = 2048;
 const unsigned int MAX_WRITE_BUFF_LEN = 1024;
 
@@ -32,16 +34,17 @@ enum ResponseStatusCode {
 
 class HttpProcessor {
 public:
-    HttpProcessor(const int socketId);
+    HttpProcessor(const int socketId, const char *sourceDir);
     ~HttpProcessor();
     bool Read();
     bool ProcessRequest();
     GetALineState GetALine();
     ParseRequestReturnCode ParseRequestLine();
     bool GetFieldSplitedByWhiteSpaceChars(char *&field);
-
 private:
     GetALineState GetALine();
+private:
+    char *m_sourceDir{ nullptr };
     char m_request[MAX_READ_BUFF_LEN]{ 0 }; // 记录请求报文
     int m_socketId{ 0 }; // 对应的套接字id
     unsigned int m_currentRequestSize{ 0 }; // 记录当前收到的请求报文长度
@@ -55,6 +58,10 @@ private:
     bool m_keepAlive{ false };
     char m_writeBuff[MAX_WRITE_BUFF_LEN]{ 0 }; // 记录请求报文
     unsigned int m_writeSize{ 0 };
+    char *m_fileAddr{ nullptr };
+    unsigned int m_fileSize{ 0 };
+    struct iovec m_iov[2]{ 0 };
+    int m_cnt{ 0 };
 };
 
 

@@ -1,4 +1,6 @@
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 #include "http_processor.h"
 
 const char *WHITE_SPACE_CHARS = " \t";
@@ -21,6 +23,7 @@ const char *NOT_FOUND_TITLE = "Not Found";
 const char *NOT_FOUND_CONTENT = "The request file was not found on this server.\n";
 const char *INTERNAL_SERVER_ERROR_TITLE = "Internal Server Error";
 const char *INTERNAL_SERVER_ERROR_CONTENT = "There was an unusual problem serving the requested file.\n";
+const unsigned int MAX_FILE_NAME_LEN = 200;
 
 void (HttpProcessor::*ParseHeadFieldValueStr)();
 typedef struct {
@@ -36,7 +39,7 @@ const KeyNameAndParseFuncMap KEY_NAME_AND_PARSE_FUNC_MAP_LIST[] = {
 const KeyNameAndParseFuncMap KEY_NAME_AND_PARSE_FUNC_MAP_LIST_SIZE =
     sizeof(KEY_NAME_AND_PARSE_FUNC_MAP_LIST) / sizeof(KEY_NAME_AND_PARSE_FUNC_MAP_LIST[0]);
 
-HttpProcessor::HttpProcessor(socketId) : m_socketId(socketId)
+HttpProcessor::HttpProcessor(socketId, const char *sourceDir) : m_socketId(socketId), m_sourceDir(sourceDir)
 {}
 
 HttpProcessor::~HttpProcessor()
@@ -243,6 +246,47 @@ ParseRequestReturnCode HttpProcessor::ParseContent()
     }
 
     return PARSE_REQUEST_RETURN_CODE_CONTINUE;
+}
+
+bool HttpProcessor::Response()
+{
+
+}
+
+ResponseStatusCode HttpProcessor::HandleRequest()
+{
+    char filePath[MAX_FILE_NAME_LEN] = { 0 };
+    int ret = sprintf_s(filePath, MAX_FILE_NAME_LEN, "%s%s", m_sourceDir, m_url);
+    if (ret == -1) {
+       printf("ERROR Get file path fail, dir:%s, url:%s.\n", m_sourceDir, m_url);
+       return RESPONSE_STATUS_CODE_INTERNAL_SERVER_ERROR; 
+    }
+
+    struct stat fileStat{ 0 };
+    if (stat(filePath, &fileStat) == -1) {
+       printf("ERROR Get file stat fail, path:%s.\n", filePath);
+       return RESPONSE_STATUS_CODE_NOT_FOUND;        
+    }
+
+    if ((fileStat.st_mode & S_IROTH) == 0) {
+        printf("ERROR Can't read %s.\n", filePath);
+        return RESPONSE_STATUS_CODE_FORBIDDEN;
+    }
+
+    if (S_ISDIR(fileStat.st_mode)) {
+        printf("ERROR %s is dir.\n", filePath);
+        return RESPONSE_STATUS_CODE_BAD_REQUEST;
+    }
+
+    int fd = open(filePath, O_RDONLY);
+    if (fd == -1) {
+        printf("ERROR open file fail: %s.\n", filePath);
+        return RESPONSE_STATUS_CODE_INTERNAL_SERVER_ERROR; 
+    }
+
+    m_fileAddr = reinterpret_cast<char *>mmap(0, fileStat, PORT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    return RESPONSE_STATUS_CODE_OK;
 }
 
 bool HttpProcessor::AddStatusLine(const int status, const char *title)
