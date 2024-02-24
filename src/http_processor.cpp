@@ -1,6 +1,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/uio.h>
 #include "http_processor.h"
 
 const char *WHITE_SPACE_CHARS = " \t";
@@ -68,6 +69,70 @@ bool HttpProcessor::Read()
 
     m_currentRequestSize += readSize;
     return true;
+}
+
+SendResponseReturnCode HttpProcessor::Write()
+{
+    if (m_leftRespSize == 0) {
+        printf("ERROR No content need to send.\n");
+        return SEND_RESPONSE_RETURN_CODE_ERROR;
+    }
+
+    ssize_t ret;
+    while (true) {
+        ret = writev(m_sockfd, m_iov, m_cnt);
+        // 发送回复消息异常
+        if (ret == -1) {
+            if (errno == EAGAIN) {
+                return SEND_RESPONSE_RETURN_CODE_AGAIN;
+            }
+            munmap(m_fileAddr, m_fileSize);
+            m_fileAddr = nullptr;
+            return SEND_RESPONSE_RETURN_CODE_ERROR;
+        }
+        unsigned int writeSize = static_cast<unsigned int >(ret);
+        m_leftRespSize -= writeSize;
+        // 发送回复消息完成
+        if (m_leftRespSize == 0) {
+            munmap(m_fileAddr, m_fileSize);
+            m_fileAddr = nullptr;
+            if (m_keepAlive) {
+                Init();
+                return SEND_RESPONSE_RETURN_CODE_NEXT;
+            }
+            return SEND_RESPONSE_RETURN_CODE_FINISH;
+        }
+        // 更新向量信息
+        if (writeSize >= m_iov[STATUS_LINE_AND_HEAD_FIELD_VECTOR_INDEX].iov_base) {
+            m_iov[STATUS_LINE_AND_HEAD_FIELD_VECTOR_INDEX].iov_len = 0;
+            m_iov[CONTENT_VECTOR_INDEX].iov_base += writeSize;
+            m_iov[CONTENT_VECTOR_INDEX].iov_len -= writeSize;
+        } else {
+            m_iov[STATUS_LINE_AND_HEAD_FIELD_VECTOR_INDEX].iov_base += writeSize;
+            m_iov[STATUS_LINE_AND_HEAD_FIELD_VECTOR_INDEX].iov_len -= writeSize;                
+        }
+    }
+}
+
+void HttpProcessor::Init()
+{
+    (void)memset_s(m_request, sizeof(m_request), 0, sizeof(m_request));
+    m_currentRequestSize = 0;
+    m_startPos = nullptr;
+    m_currentIndex = 0;
+    m_processState = HTTP_PROCESS_STATE_PARSE_REQUEST_LINE;
+    m_method = nullptr;
+    m_url = nullptr;
+    m_httpVersion = nullptr;
+    m_contentLen = 0;
+    m_keepAlive = false;
+    (void)memset_s(m_writeBuff, sizeof(m_writeBuff), 0, sizeof(m_writeBuff));
+    m_writeSize = 0;
+    m_fileAddr = nullptr;
+    m_fileSize = 0;
+    (void)memset_s(m_iov, sizeof(m_iov), 0, sizeof(m_iov));
+    int m_cnt = 0;
+    m_leftRespSize = 0; // 剩余回复字节数
 }
 
 ParseRequestReturnCode HttpProcessor::ParseRequest()
@@ -266,10 +331,10 @@ bool HttpProcessor::Response(const ParseRequestReturnCode returnCode)
     switch (returnCode) {
         case PARSE_REQUEST_RETURN_CODE_FINISH: {
             ResponseStatusCode statusCode = HandleRequest();
-            break;
+            return AddResponse(statusCode);
         }
         case PARSE_REQUEST_RETURN_CODE_ERROR: {
-            break;
+            return AddResponse(RESPONSE_STATUS_CODE_BAD_REQUEST);
         }
         case ARSE_REQUEST_RETURN_CODE_CONTINUE: {
             return true;
@@ -311,9 +376,8 @@ ResponseStatusCode HttpProcessor::HandleRequest()
         printf("ERROR open file fail: %s.\n", filePath);
         return RESPONSE_STATUS_CODE_INTERNAL_SERVER_ERROR; 
     }
-
-    m_fileAddr = reinterpret_cast<char *>mmap(0, fileStat, PORT_READ, MAP_PRIVATE, fd, 0);
     m_fileSize = fileStat.st_size;
+    m_fileAddr = reinterpret_cast<char *>mmap(0, m_fileSize, PORT_READ, MAP_PRIVATE, fd, 0);
     close(fd);
     return RESPONSE_STATUS_CODE_OK;
 }
@@ -341,11 +405,12 @@ bool HttpProcessor::AddResponseInNormalCase()
         return false;
     }
 
-    m_iov[0].iov_base = m_writeBuff;
-    m_iov[0].iov_len = m_writeSize;
-    m_iov[1].iov_base = m_fileAddr;
-    m_iov[1].iov_len = m_fileSize;
+    m_iov[STATUS_LINE_AND_HEAD_FIELD_VECTOR_INDEX].iov_base = m_writeBuff;
+    m_iov[STATUS_LINE_AND_HEAD_FIELD_VECTOR_INDEX].iov_len = m_writeSize;
+    m_iov[CONTENT_VECTOR_INDEX].iov_base = m_fileAddr;
+    m_iov[CONTENT_VECTOR_INDEX].iov_len = m_fileSize;
     m_cnt = 2;
+    m_leftRespSize = m_writeSize + m_fileSize;
     return true;
 }
 
@@ -361,9 +426,10 @@ bool HttpProcessor::AddResponseInErrorCase(const StatusInfo statusInfo)
         return false;
     }
 
-    m_iov[0].iov_base = m_writeBuff;
-    m_iov[0].iov_len = m_writeSize;
+    m_iov[STATUS_LINE_AND_HEAD_FIELD_VECTOR_INDEX].iov_base = m_writeBuff;
+    m_iov[STATUS_LINE_AND_HEAD_FIELD_VECTOR_INDEX].iov_len = m_writeSize;
     m_cnt = 1;
+    m_leftRespSize = m_writeSize;
     return true;
 }
 
